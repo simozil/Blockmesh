@@ -1,8 +1,9 @@
 #!/bin/bash
 
-# Jalur penyimpanan skrip
-SCRIPT_PATH="$HOME/Blockmesh.sh"
-LOG_FILE="$HOME/blockmesh/blockmesh.log"  # Jalur file log
+# Jalur penyimpanan skrip dan log
+SCRIPT_PATH="$HOME/blockmesh/Blockmesh.sh"
+BLOCKMESH_DIR="$HOME/blockmesh"
+LOG_FILE="$BLOCKMESH_DIR/blockmesh.log"
 
 # Membuat file log dan mengarahkan ulang output
 exec > >(tee -a "$LOG_FILE") 2>&1
@@ -14,12 +15,42 @@ if [ "$(id -u)" != "0" ]; then
     exit 1
 fi
 
+# Fungsi untuk membuat file .env di dalam folder blockmesh
+function create_env_file() {
+    local ENV_FILE="$BLOCKMESH_DIR/.env"
+    
+    if [ ! -f "$ENV_FILE" ]; then
+        echo "Membuat file .env di folder blockmesh..."
+        
+        read -p "Masukkan email BlockMesh Anda: " BLOCKMESH_EMAIL
+        read -sp "Masukkan password BlockMesh Anda: " BLOCKMESH_PASSWORD
+        echo
+        read -p "Masukkan port yang ingin digunakan (default: 1001): " PORT
+        PORT=${PORT:-1001}
+
+        # Menyimpan variabel ke dalam file .env
+        cat <<EOT > "$ENV_FILE"
+# Konfigurasi BlockMesh
+BLOCKMESH_EMAIL=$BLOCKMESH_EMAIL
+BLOCKMESH_PASSWORD=$BLOCKMESH_PASSWORD
+PORT=$PORT
+EOT
+
+        echo ".env telah dibuat di $ENV_FILE"
+    else
+        echo "File .env ditemukan di $ENV_FILE, memuat konfigurasi..."
+    fi
+
+    # Memuat variabel dari .env
+    source "$ENV_FILE"
+}
+
 # Fungsi menu utama
 function main_menu() {
     while true; do
         clear
-        echo "HAY"
-        echo "YA"
+        echo "Skrip ini dibuat oleh komunitas Dagang Besar hahahaha, Twitter @ferdie_jhovie, gratis dan sumber terbuka, jangan percaya jika ada yang berbayar."
+        echo "Jika ada masalah, bisa menghubungi Twitter. Hanya ada satu akun."
         echo "================================================================"
         echo "Untuk keluar dari skrip, tekan Ctrl + C"
         echo "Pilih opsi yang ingin dijalankan:"
@@ -53,19 +84,14 @@ function deploy_node() {
     echo "Memperbarui sistem..."
     sudo apt update -y && sudo apt upgrade -y
 
-    # Membuat direktori blockmesh
-    BLOCKMESH_DIR="$HOME/blockmesh"
-    LOG_FILE="$BLOCKMESH_DIR/blockmesh.log"
-
-    # Periksa apakah direktori blockmesh sudah ada
-    if [ -d "$BLOCKMESH_DIR" ]; then
-        echo "Direktori $BLOCKMESH_DIR sudah ada, menghapusnya..."
-        rm -rf "$BLOCKMESH_DIR"
+    # Membuat direktori blockmesh jika belum ada
+    if [ ! -d "$BLOCKMESH_DIR" ]; then
+        mkdir -p "$BLOCKMESH_DIR"
+        echo "Direktori dibuat: $BLOCKMESH_DIR"
     fi
 
-    # Membuat direktori blockmesh baru
-    mkdir -p "$BLOCKMESH_DIR"
-    echo "Direktori dibuat: $BLOCKMESH_DIR"
+    # Membuat file .env
+    create_env_file
 
     # Mengunduh blockmesh-cli
     echo "Mengunduh blockmesh-cli..."
@@ -81,20 +107,6 @@ function deploy_node() {
     BLOCKMESH_CLI_PATH="$BLOCKMESH_DIR/target/release/blockmesh-cli"
     echo "Jalur blockmesh-cli: $BLOCKMESH_CLI_PATH"
 
-    # Meminta email dan password BlockMesh dari pengguna
-    read -p "Masukkan email BlockMesh Anda: " BLOCKMESH_EMAIL
-    read -sp "Masukkan password BlockMesh Anda: " BLOCKMESH_PASSWORD
-    echo
-
-    # Meminta port dari pengguna
-    read -p "Masukkan port yang ingin digunakan (default: 1001): " PORT
-    PORT=${PORT:-1001}  # Jika tidak ada input, gunakan port default 1001
-
-    # Menyimpan email, password, dan port sebagai variabel lingkungan
-    export BLOCKMESH_EMAIL
-    export BLOCKMESH_PASSWORD
-    export PORT
-
     # Periksa apakah blockmesh-cli ada dan dapat dijalankan
     if [ ! -f "$BLOCKMESH_CLI_PATH" ]; then
         echo "Kesalahan: file blockmesh-cli tidak ditemukan, periksa apakah unduhan dan ekstraksi berhasil."
@@ -103,12 +115,9 @@ function deploy_node() {
 
     chmod +x "$BLOCKMESH_CLI_PATH"  # Pastikan file dapat dijalankan
 
-    # Pindah direktori dan menjalankan skrip
+    # Pindah direktori dan menjalankan blockmesh-cli
     echo "Berpindah direktori dan menjalankan ./blockmesh-cli..."
-    cd /root/blockmesh/target/release
-
-    # Menjalankan blockmesh-cli
-    echo "Memulai blockmesh-cli..."
+    cd "$BLOCKMESH_DIR/target/release"
     ./blockmesh-cli --email "$BLOCKMESH_EMAIL" --password "$BLOCKMESH_PASSWORD" > "$LOG_FILE" 2>&1 &
     echo "Skrip selesai dijalankan."
 
